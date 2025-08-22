@@ -1,0 +1,74 @@
+MIT License
+
+Copyright (c) 2025 Guillaume de Swardt
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+================================================================================
+
+THIRD-PARTY COMPONENTS:
+
+This project incorporates and builds upon the following open-source components:
+
+1. LilyGO T-SIM7000G Examples
+   - Source: https://github.com/Xinyuan-LilyGO/LilyGo-Modem-Series
+   - License: MIT License
+   - Copyright: LilyGO Technology Co., Ltd.
+
+2. TinyGSM Library (LilyGO Fork)
+   - Source: https://github.com/lewisxhe/TinyGSM
+   - License: LGPL-3.0 License
+   - Copyright: Volodymyr Shymanskyy and contributors
+
+3. ArduinoOTA Library
+   - Source: https://github.com/esp8266/Arduino/tree/master/libraries/ArduinoOTA
+   - License: LGPL-2.1 License
+   - Copyright: Arduino community
+
+4. ESP32 Arduino Core
+   - Source: https://github.com/espressif/arduino-esp32
+   - License: LGPL-2.1 License
+   - Copyright: Espressif Systems
+
+5. PlatformIO Build System
+   - Source: https://platformio.org/
+   - License: Apache License 2.0
+   - Copyright: PlatformIO Labs
+
+All third-party components retain their original licenses and copyrights.
+This project's modifications and enhancements are released under the MIT License above.
+
+================================================================================
+
+HARDWARE COMPATIBILITY:
+
+This software is designed for the LilyGO T-SIM7000G development board:
+- Hardware: https://github.com/Xinyuan-LilyGO/LilyGo-Modem-Series
+- Manufacturer: LilyGO Technology Co., Ltd.
+- Product: T-SIM7000G ESP32 with SIM7000G cellular modem
+
+================================================================================
+
+DISCLAIMER:
+
+This project is an independent enhancement of LilyGO's example code and is not
+officially endorsed by LilyGO Technology Co., Ltd. Use at your own risk.
+
+For official LilyGO support and documentation, please visit:
+https://github.com/Xinyuan-LilyGO/LilyGo-Modem-Series

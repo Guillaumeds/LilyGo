@@ -1,0 +1,159 @@
+# ========================================
+# 🛰️ LilyGO T-SIM7000G Project .gitignore
+# ========================================
+
+# PlatformIO Build Files
+.pio/
+.pioenvs/
+.piolibdeps/
+lib/
+.clang_complete
+.gcc-flags.json
+
+# VSCode IDE Files
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.vscode/c_cpp_properties.json
+*.code-workspace
+
+# Compiled Object Files
+*.slo
+*.lo
+*.o
+*.obj
+*.elf
+*.bin
+*.hex
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lai
+*.la
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Fortran module files
+*.mod
+*.smod
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Logs and Temporary Files
+*.log
+*.tmp
+*.temp
+*~
+*.swp
+*.swo
+
+# ========================================
+# 🔐 CONFIGURATION FILES - ALL INCLUDED
+# ========================================
+#
+# NOTE: All configuration files including WiFi credentials
+# and API keys are intentionally included in this repository
+# as requested by the project owner.
+#
+# Uncomment lines below if you want to protect sensitive data:
+# config_local.h
+# secrets.h
+# wifi_credentials.h
+# include/wifi_local.h
+# include/secrets_local.h
+# api_keys.txt
+# tokens.txt
+
+# ========================================
+# 📊 DATA AND BACKUP FILES
+# ========================================
+
+# Data files
+*.csv
+*.json
+data/
+logs/
+backups/
+
+# Firmware backup files
+firmware_backup/
+*.bin.backup
+
+# ========================================
+# 🔧 DEVELOPMENT FILES
+# ========================================
+
+# Test results
+test_results/
+coverage/
+
+# Documentation builds
+docs/_build/
+docs/html/
+docs/latex/
+
+# Package files
+*.tar.gz
+*.zip
+*.rar
+
+# ========================================
+# 📱 MOBILE AND EMBEDDED SPECIFIC
+# ========================================
+
+# Serial monitor logs
+serial_*.log
+monitor_*.txt
+
+# Firmware files (if auto-generated)
+*.elf.map
+*.bin.map
+
+# ========================================
+# 🌐 NETWORK AND DEPLOYMENT
+# ========================================
+
+# Deployment scripts with credentials
+deploy_local.sh
+deploy_prod.sh
+
+# Network configuration
+network_config_local.json
+
+# ========================================
+# 💡 NOTES
+# ========================================
+#
+# This .gitignore is configured for:
+# - LilyGO T-SIM7000G development
+# - PlatformIO projects
+# - VSCode IDE
+# - Sensitive configuration protection
+# - Clean repository maintenance
+#
+# Remember to:
+# 1. Never commit WiFi passwords
+# 2. Never commit API keys
+# 3. Keep personal configurations local
+# 4. Use environment variables for secrets
+#
+# ========================================

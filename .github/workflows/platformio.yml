@@ -1,0 +1,152 @@
+name: 🛰️ LilyGO T-SIM7000G Build
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        environment:
+          - T-SIM7000G
+          - T-SIM7000G-APN-Detect
+          - T-SIM7000G-Hardware-Test
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Cache pip
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Cache PlatformIO
+      uses: actions/cache@v3
+      with:
+        path: ~/.platformio
+        key: ${{ runner.os }}-${{ hashFiles('**/lockfiles') }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install PlatformIO
+      run: |
+        python -m pip install --upgrade pip
+        pip install --upgrade platformio
+
+    - name: Create dummy WiFi config for CI
+      run: |
+        cp include/wifi_config.h include/wifi_config.h.backup
+        sed -i 's/YOUR_WIFI_NETWORK/CI_DUMMY_NETWORK/g' include/wifi_config.h
+        sed -i 's/YOUR_WIFI_PASSWORD/CI_DUMMY_PASSWORD/g' include/wifi_config.h
+
+    - name: Build ${{ matrix.environment }}
+      run: pio run -e ${{ matrix.environment }}
+
+    - name: Restore WiFi config
+      run: |
+        mv include/wifi_config.h.backup include/wifi_config.h
+
+    - name: Upload firmware artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: firmware-${{ matrix.environment }}
+        path: .pio/build/${{ matrix.environment }}/firmware.bin
+        retention-days: 30
+
+  check-code-quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install PlatformIO
+      run: |
+        python -m pip install --upgrade pip
+        pip install --upgrade platformio
+
+    - name: Check code formatting
+      run: |
+        pio check --skip-packages
+
+    - name: Generate build report
+      run: |
+        echo "## 📊 Build Report" >> $GITHUB_STEP_SUMMARY
+        echo "| Environment | Status | Size |" >> $GITHUB_STEP_SUMMARY
+        echo "|-------------|--------|------|" >> $GITHUB_STEP_SUMMARY
+        
+        for env in T-SIM7000G T-SIM7000G-APN-Detect T-SIM7000G-Hardware-Test; do
+          if [ -f ".pio/build/$env/firmware.bin" ]; then
+            size=$(stat -c%s ".pio/build/$env/firmware.bin")
+            echo "| $env | ✅ Success | ${size} bytes |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| $env | ❌ Failed | - |" >> $GITHUB_STEP_SUMMARY
+          fi
+        done
+
+  release:
+    needs: [build, check-code-quality]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+    
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.run_number }}
+        release_name: LilyGO T-SIM7000G Firmware v${{ github.run_number }}
+        body: |
+          ## 🛰️ LilyGO T-SIM7000G Firmware Release
+          
+          **Features:**
+          - 📡 Dual connectivity (WiFi + Cellular)
+          - 🛰️ GPS tracking with ThingSpeak integration
+          - 🔋 Battery and solar panel monitoring
+          - 🔄 WiFi OTA programming support
+          
+          **Firmware Files:**
+          - `firmware-T-SIM7000G.bin` - Main program
+          - `firmware-T-SIM7000G-APN-Detect.bin` - Network diagnostics
+          - `firmware-T-SIM7000G-Hardware-Test.bin` - Hardware testing
+          
+          **Installation:**
+          1. Upload via USB first: `pio run -e T-SIM7000G -t upload`
+          2. Configure WiFi credentials in `include/wifi_config.h`
+          3. Use OTA for future updates: `pio run -e T-SIM7000G-OTA -t upload`
+          
+          Built from commit: ${{ github.sha }}
+        draft: false
+        prerelease: false
+    
+    - name: Upload Main Firmware
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./firmware-T-SIM7000G/firmware.bin
+        asset_name: firmware-T-SIM7000G.bin
+        asset_content_type: application/octet-stream
