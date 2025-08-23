@@ -147,12 +147,7 @@ void modem_on()
     digitalWrite(PWR_PIN, HIGH);  // Power pulse
     delay(1000);
     digitalWrite(PWR_PIN, LOW);   // Release power button
-    // Perform advanced battery reading during modem startup delay
-    Serial.println("Performing advanced battery measurement during modem startup...");
-    read_battery_advanced();
-
-    // Complete remaining startup delay if needed
-    delay(2000);  // Small additional delay to ensure modem is ready
+    delay(MODEM_STARTUP_DELAY);   // Wait for modem to start
 
     int i = 15;  // More attempts
 
@@ -340,6 +335,15 @@ void setup()
             return;
         }
     }
+
+    // Perform advanced battery measurement early in cycle
+    // This gives SIM module time to stabilize while we measure battery
+    Serial.println("\n=== Advanced Battery Measurement ===");
+    read_battery_advanced();
+
+    // Additional stabilization time for SIM module after battery measurement
+    Serial.println("Allowing SIM module additional stabilization time...");
+    delay(2000);
 
     cycleCount++;
     Serial.printf("\n=== Starting Cycle #%d ===\n", cycleCount);
