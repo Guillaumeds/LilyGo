@@ -945,7 +945,7 @@ void read_battery_advanced() {
         // Inner loop: Take BATTERY_SAMPLES readings for this set
         for (int i = 0; i < BATTERY_SAMPLES; i++) {
             voltageBuffer[i] = (float)analogRead(BATTERY_ADC_PIN);
-            delayMicroseconds(100);  // Small delay between readings
+            delayMicroseconds(200);  // Doubled delay between readings for stability
         }
 
         // Sort the readings and get median
@@ -954,7 +954,7 @@ void read_battery_advanced() {
         readBuffer += medianReading;
 
         Serial.printf("Median ADC: %d\n", medianReading);
-        delay(50);  // Small delay between sets
+        delay(100);  // Doubled delay between sets for extended stabilization
     }
 
     // Calculate average of all median readings
