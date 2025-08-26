@@ -84,10 +84,9 @@ struct SimpleSensorData {
 #define SIMPLE_SENSOR_1_ADDR 13  // Address 13: Temp/Moisture only
 #define SIMPLE_SENSOR_2_ADDR 10  // Address 10: Temp/Moisture only
 
-// Official Halisense commands (confirmed working)
-const byte READ_ALL_REG_ADDR2[8] = {0x02, 0x03, 0x00, 0x00, 0x00, 0x07, 0x84, 0x39};  // Address 2
-const byte READ_TEMP_HUMID_ADDR13[8] = {0x0D, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC5, 0xE8}; // Address 13, 2 registers
-const byte READ_TEMP_HUMID_ADDR10[8] = {0x0A, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4, 0x35}; // Address 10, 2 registers
+// Official Halisense command template (confirmed working) - CRC calculated dynamically
+const byte READ_ALL_REG_TEMPLATE[6] = {0x00, 0x03, 0x00, 0x00, 0x00, 0x07};  // Address filled dynamically
+const byte READ_TEMP_HUMID_TEMPLATE[6] = {0x00, 0x03, 0x00, 0x00, 0x00, 0x02}; // Address filled dynamically
 
 // Battery measurement variables
 float batteryVoltage = 0.0;
@@ -143,6 +142,7 @@ int calculate_battery_percentage(float voltage);
 SensorData readFullSensorData();
 SimpleSensorData readSimpleSensorData(uint8_t address);
 int sendHalisenseCommand(const byte* command, int cmdLength, byte* response, int maxResponse);
+uint16_t calculateCRC(byte *data, uint8_t length);
 
 uint32_t dectModemBaud()
 {
@@ -377,15 +377,25 @@ SensorData readFullSensorData() {
 
     Serial.println("📡 BULK READ: Getting all 7 sensor values from address 2...");
 
-    // Send READ_ALL command for address 2 (reads 7 registers at once)
+    // Build command dynamically with correct address and CRC (original working method)
+    byte command[8];
+    memcpy(command, READ_ALL_REG_TEMPLATE, 6);
+    command[0] = FULL_SENSOR_ADDR;  // Set address to 2
+
+    // Calculate CRC dynamically (original working method)
+    uint16_t crc = calculateCRC(command, 6);
+    command[6] = crc & 0xFF;        // CRC low byte
+    command[7] = (crc >> 8) & 0xFF; // CRC high byte
+
+    // Send command (reads 7 registers at once)
     byte response[25];
-    int responseLength = sendHalisenseCommand(READ_ALL_REG_ADDR2, 8, response, 25);
+    int responseLength = sendHalisenseCommand(command, 8, response, 25);
 
     if (responseLength == 19) {  // Expected: 3 header + 14 data + 2 CRC
         Serial.printf("✓ Perfect response length: %d bytes\n", responseLength);
 
         // Validate response header
-        if (response[0] == 0x01 && response[1] == 0x03 && response[2] == 0x0E) {
+        if (response[0] == FULL_SENSOR_ADDR && response[1] == 0x03 && response[2] == 0x0E) {
             Serial.println("✓ Valid response header");
 
             // Parse all 7 sensor values (official Halisense protocol)
@@ -415,16 +425,15 @@ SimpleSensorData readSimpleSensorData(uint8_t address) {
 
     Serial.printf("📡 Reading temp/humidity from address %d...\n", address);
 
-    // Choose the correct command based on address
-    const byte* command;
-    if (address == SIMPLE_SENSOR_1_ADDR) {
-        command = READ_TEMP_HUMID_ADDR13;
-    } else if (address == SIMPLE_SENSOR_2_ADDR) {
-        command = READ_TEMP_HUMID_ADDR10;
-    } else {
-        Serial.printf("✗ Unknown address: %d\n", address);
-        return data;
-    }
+    // Build command dynamically with correct address and CRC (original working method)
+    byte command[8];
+    memcpy(command, READ_TEMP_HUMID_TEMPLATE, 6);
+    command[0] = address;  // Set the specific address
+
+    // Calculate CRC dynamically (original working method)
+    uint16_t crc = calculateCRC(command, 6);
+    command[6] = crc & 0xFF;        // CRC low byte
+    command[7] = (crc >> 8) & 0xFF; // CRC high byte
 
     // Send command (reads 2 registers: temp and humidity)
     byte response[9]; // Expected: 3 header + 4 data + 2 CRC
@@ -1305,4 +1314,22 @@ int calculate_battery_percentage(float voltage) {
     }
 
     return (int)percentage;
+}
+
+uint16_t calculateCRC(byte *data, uint8_t length) {
+    uint16_t crc = 0xFFFF;
+
+    for (uint8_t i = 0; i < length; i++) {
+        crc ^= data[i];
+        for (uint8_t j = 0; j < 8; j++) {
+            if (crc & 0x0001) {
+                crc >>= 1;
+                crc ^= 0xA001;
+            } else {
+                crc >>= 1;
+            }
+        }
+    }
+
+    return crc;
 }
