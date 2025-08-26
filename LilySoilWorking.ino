@@ -72,8 +72,22 @@ struct SensorData {
     bool valid = false;
 };
 
+// Simple sensor data structure for temp/moisture only sensors
+struct SimpleSensorData {
+    float temperature = 0.0;
+    float humidity = 0.0;
+    bool valid = false;
+};
+
+// Sensor addresses
+#define FULL_SENSOR_ADDR     2   // Address 2: Full 7-parameter sensor
+#define SIMPLE_SENSOR_1_ADDR 13  // Address 13: Temp/Moisture only
+#define SIMPLE_SENSOR_2_ADDR 10  // Address 10: Temp/Moisture only
+
 // Official Halisense commands (confirmed working)
-const byte READ_ALL_REG[8] = {0x01, 0x03, 0x00, 0x00, 0x00, 0x07, 0x04, 0x08};
+const byte READ_ALL_REG_ADDR2[8] = {0x02, 0x03, 0x00, 0x00, 0x00, 0x07, 0x84, 0x39};  // Address 2
+const byte READ_TEMP_HUMID_ADDR13[8] = {0x0D, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC5, 0xE8}; // Address 13, 2 registers
+const byte READ_TEMP_HUMID_ADDR10[8] = {0x0A, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4, 0x35}; // Address 10, 2 registers
 
 // Battery measurement variables
 float batteryVoltage = 0.0;
@@ -81,12 +95,14 @@ int batteryPercentage = 0;
 float backupBatteryVoltage = 0.0;
 int backupBatteryPercentage = 0;
 
-// Soil sensor data
-SensorData soilData;
+// Soil sensor data - 3 sensors total
+SensorData fullSensorData;        // Address 2: Full 7-parameter sensor
+SimpleSensorData simpleSensor1;   // Address 13: Temp/Moisture only
+SimpleSensorData simpleSensor2;   // Address 10: Temp/Moisture only
 
 // ThingSpeak configuration - TWO CHANNEL GROUPS
-const char* THINGSPEAK_API_KEY_GROUP1 = "RWE803O3NIOLIUQS";  // Group 1: Voltages (and later GPS)
-const char* THINGSPEAK_API_KEY_GROUP2 = "D89K8U1LXN43JG8K";  // Group 2: Soil sensor data
+const char* THINGSPEAK_API_KEY_GROUP1 = "RWE803O3NIOLIUQS";  // Group 1: Voltages + Simple sensors (addr 13,10)
+const char* THINGSPEAK_API_KEY_GROUP2 = "D89K8U1LXN43JG8K";  // Group 2: Full soil sensor data (addr 2)
 const char* APN = "internet";
 
 // Global variables
@@ -124,7 +140,8 @@ float mapBatteryVoltage(float voltage, float in_min, float in_max, float out_min
 int calculate_battery_percentage(float voltage);
 
 // Soil sensor functions (working implementation)
-SensorData readAllSensorData();
+SensorData readFullSensorData();
+SimpleSensorData readSimpleSensorData(uint8_t address);
 int sendHalisenseCommand(const byte* command, int cmdLength, byte* response, int maxResponse);
 
 uint32_t dectModemBaud()
@@ -255,35 +272,65 @@ void setup()
     read_backup_battery_advanced();
 
     // Initialize Modbus for soil sensors (sensors permanently powered)
-    Serial.println("\n=== Soil Sensor Reading ===");
-    Serial.println("🚀 BULK READ: Getting all 7 Halisense values in ONE command");
+    Serial.println("\n=== Multi-Sensor Reading ===");
+    Serial.println("🚀 Reading from 3 sensors: Full(addr 2) + Simple(addr 13,10)");
 
     // Initialize Modbus with confirmed working settings
     ModbusSerial.begin(MODBUS_BAUD, SERIAL_8N1, MODBUS_RX_PIN, MODBUS_TX_PIN);
     delay(1000); // Allow sensors to stabilize
 
-    // Read all soil sensor data using working bulk method
-    soilData = readAllSensorData();
+    // Read all 3 soil sensors
+    Serial.println("📡 Reading from 3 soil sensors...");
 
-    if (soilData.valid) {
-        Serial.println("✅ Soil sensor data obtained successfully");
-        Serial.printf("  Temperature: %.1f°C\n", soilData.temperature);
-        Serial.printf("  Humidity: %.1f%%\n", soilData.humidity);
-        Serial.printf("  EC: %.0f µS/cm\n", soilData.ec);
-        Serial.printf("  pH: %.1f\n", soilData.ph);
-        Serial.printf("  Nitrogen: %.0f mg/kg\n", soilData.nitrogen);
-        Serial.printf("  Phosphorus: %.0f mg/kg\n", soilData.phosphorus);
-        Serial.printf("  Potassium: %.0f mg/kg\n", soilData.potassium);
+    // Read full sensor (address 2)
+    Serial.println("Reading full sensor (address 2)...");
+    fullSensorData = readFullSensorData();
+
+    // Read simple sensor 1 (address 13)
+    Serial.println("Reading simple sensor 1 (address 13)...");
+    simpleSensor1 = readSimpleSensorData(SIMPLE_SENSOR_1_ADDR);
+
+    // Read simple sensor 2 (address 10)
+    Serial.println("Reading simple sensor 2 (address 10)...");
+    simpleSensor2 = readSimpleSensorData(SIMPLE_SENSOR_2_ADDR);
+
+    // Display results
+    if (fullSensorData.valid) {
+        Serial.println("✅ Full sensor data obtained successfully");
+        Serial.printf("  Temperature: %.1f°C\n", fullSensorData.temperature);
+        Serial.printf("  Humidity: %.1f%%\n", fullSensorData.humidity);
+        Serial.printf("  EC: %.0f µS/cm\n", fullSensorData.ec);
+        Serial.printf("  pH: %.1f\n", fullSensorData.ph);
+        Serial.printf("  Nitrogen: %.0f mg/kg\n", fullSensorData.nitrogen);
+        Serial.printf("  Phosphorus: %.0f mg/kg\n", fullSensorData.phosphorus);
+        Serial.printf("  Potassium: %.0f mg/kg\n", fullSensorData.potassium);
     } else {
-        Serial.println("❌ Failed to read soil sensors - using default values");
-        // Set default values for failed readings
-        soilData.temperature = -999.0;
-        soilData.humidity = -999.0;
-        soilData.ec = -999.0;
-        soilData.ph = -999.0;
-        soilData.nitrogen = -999.0;
-        soilData.phosphorus = -999.0;
-        soilData.potassium = -999.0;
+        Serial.println("❌ Failed to read full sensor - using default values");
+        fullSensorData.temperature = -999.0;
+        fullSensorData.humidity = -999.0;
+        fullSensorData.ec = -999.0;
+        fullSensorData.ph = -999.0;
+        fullSensorData.nitrogen = -999.0;
+        fullSensorData.phosphorus = -999.0;
+        fullSensorData.potassium = -999.0;
+    }
+
+    if (simpleSensor1.valid) {
+        Serial.printf("✅ Simple sensor 1 (addr 13): Temp=%.1f°C, Humidity=%.1f%%\n",
+                      simpleSensor1.temperature, simpleSensor1.humidity);
+    } else {
+        Serial.println("❌ Failed to read simple sensor 1 - using default values");
+        simpleSensor1.temperature = -999.0;
+        simpleSensor1.humidity = -999.0;
+    }
+
+    if (simpleSensor2.valid) {
+        Serial.printf("✅ Simple sensor 2 (addr 10): Temp=%.1f°C, Humidity=%.1f%%\n",
+                      simpleSensor2.temperature, simpleSensor2.humidity);
+    } else {
+        Serial.println("❌ Failed to read simple sensor 2 - using default values");
+        simpleSensor2.temperature = -999.0;
+        simpleSensor2.humidity = -999.0;
     }
 
     // Additional stabilization time for SIM module after measurements
@@ -325,14 +372,14 @@ void loop()
 
 // ===== SOIL SENSOR FUNCTIONS (Working Implementation) =====
 
-SensorData readAllSensorData() {
+SensorData readFullSensorData() {
     SensorData data;
 
-    Serial.println("📡 BULK READ: Getting all 7 sensor values in one command...");
+    Serial.println("📡 BULK READ: Getting all 7 sensor values from address 2...");
 
-    // Send READ_ALL command (reads 7 registers at once)
+    // Send READ_ALL command for address 2 (reads 7 registers at once)
     byte response[25];
-    int responseLength = sendHalisenseCommand(READ_ALL_REG, 8, response, 25);
+    int responseLength = sendHalisenseCommand(READ_ALL_REG_ADDR2, 8, response, 25);
 
     if (responseLength == 19) {  // Expected: 3 header + 14 data + 2 CRC
         Serial.printf("✓ Perfect response length: %d bytes\n", responseLength);
@@ -358,6 +405,51 @@ SensorData readAllSensorData() {
         }
     } else {
         Serial.printf("✗ Wrong response length: %d bytes (expected: 19)\n", responseLength);
+    }
+
+    return data;
+}
+
+SimpleSensorData readSimpleSensorData(uint8_t address) {
+    SimpleSensorData data;
+
+    Serial.printf("📡 Reading temp/humidity from address %d...\n", address);
+
+    // Choose the correct command based on address
+    const byte* command;
+    if (address == SIMPLE_SENSOR_1_ADDR) {
+        command = READ_TEMP_HUMID_ADDR13;
+    } else if (address == SIMPLE_SENSOR_2_ADDR) {
+        command = READ_TEMP_HUMID_ADDR10;
+    } else {
+        Serial.printf("✗ Unknown address: %d\n", address);
+        return data;
+    }
+
+    // Send command (reads 2 registers: temp and humidity)
+    byte response[9]; // Expected: 3 header + 4 data + 2 CRC
+    int responseLength = sendHalisenseCommand(command, 8, response, 9);
+
+    if (responseLength == 9) {  // Expected: 3 header + 4 data + 2 CRC
+        Serial.printf("✓ Perfect response length: %d bytes\n", responseLength);
+
+        // Validate response header
+        if (response[0] == address && response[1] == 0x03 && response[2] == 0x04) {
+            Serial.println("✓ Valid response header");
+
+            // Parse temperature and humidity (same format as full sensor)
+            data.humidity = (((response[3] << 8) | response[4]) & 0xFFF) / 10.0;
+            data.temperature = (((response[5] << 8) | response[6]) & 0xFFF) / 10.0;
+
+            data.valid = true;
+            Serial.printf("✅ Simple sensor read successful: Temp=%.1f°C, Humidity=%.1f%%\n",
+                         data.temperature, data.humidity);
+
+        } else {
+            Serial.printf("✗ Invalid header: %02X %02X %02X\n", response[0], response[1], response[2]);
+        }
+    } else {
+        Serial.printf("✗ Wrong response length: %d bytes (expected: 9)\n", responseLength);
     }
 
     return data;
@@ -462,15 +554,19 @@ bool performThingSpeakCycle() {
 }
 
 bool sendThingSpeakGroup1() {
-    Serial.println("📡 Sending Group 1 data (Voltages) to ThingSpeak...");
+    Serial.println("📡 Sending Group 1 data (Voltages + Simple Sensors) to ThingSpeak...");
 
-    // Build ThingSpeak URL for Group 1: Voltages
+    // Build ThingSpeak URL for Group 1: Voltages + Simple sensors in GPS fields
     String url = "/update?api_key=" + String(THINGSPEAK_API_KEY_GROUP1);
     url += "&field1=" + String(batteryVoltage, 3);           // Main battery voltage
     url += "&field2=" + String(batteryPercentage);          // Main battery percentage
     url += "&field3=" + String(backupBatteryVoltage, 3);    // Backup battery voltage
     url += "&field4=" + String(backupBatteryPercentage);    // Backup battery percentage
-    // Fields 5-8 reserved for GPS data later
+    // Using GPS reserved fields for simple sensors
+    url += "&field5=" + String(simpleSensor1.temperature, 1);  // Simple sensor 1 temp (addr 13)
+    url += "&field6=" + String(simpleSensor1.humidity, 1);     // Simple sensor 1 humidity (addr 13)
+    url += "&field7=" + String(simpleSensor2.temperature, 1);  // Simple sensor 2 temp (addr 10)
+    url += "&field8=" + String(simpleSensor2.humidity, 1);     // Simple sensor 2 humidity (addr 10)
 
     Serial.println("Group 1 URL: " + url);
 
@@ -501,18 +597,18 @@ bool sendThingSpeakGroup1() {
 }
 
 bool sendThingSpeakGroup2() {
-    Serial.println("📡 Sending Group 2 data (Soil sensors) to ThingSpeak...");
+    Serial.println("📡 Sending Group 2 data (Full Soil Sensor) to ThingSpeak...");
 
-    // Build ThingSpeak URL for Group 2: Soil sensor data (RAW values)
+    // Build ThingSpeak URL for Group 2: Full soil sensor data (address 2)
     String url = "/update?api_key=" + String(THINGSPEAK_API_KEY_GROUP2);
-    url += "&field1=" + String(soilData.temperature, 1);       // Soil temperature (raw)
-    url += "&field2=" + String(soilData.humidity, 1);          // Soil humidity (raw)
-    url += "&field3=" + String((int)soilData.ec);              // EC (raw) - cast to int to avoid spaces
-    url += "&field4=" + String(soilData.ph, 1);                // pH (raw)
-    url += "&field5=" + String((int)soilData.nitrogen);        // Nitrogen (raw) - cast to int
-    url += "&field6=" + String((int)soilData.phosphorus);      // Phosphorus (raw) - cast to int
-    url += "&field7=" + String((int)soilData.potassium);       // Potassium (raw) - cast to int
-    url += "&field8=" + String(soilData.valid ? 1 : 0);        // Data validity flag
+    url += "&field1=" + String(fullSensorData.temperature, 1);       // Full sensor temperature
+    url += "&field2=" + String(fullSensorData.humidity, 1);          // Full sensor humidity
+    url += "&field3=" + String((int)fullSensorData.ec);              // EC (raw) - cast to int to avoid spaces
+    url += "&field4=" + String(fullSensorData.ph, 1);                // pH (raw)
+    url += "&field5=" + String((int)fullSensorData.nitrogen);        // Nitrogen (raw) - cast to int
+    url += "&field6=" + String((int)fullSensorData.phosphorus);      // Phosphorus (raw) - cast to int
+    url += "&field7=" + String((int)fullSensorData.potassium);       // Potassium (raw) - cast to int
+    url += "&field8=" + String(fullSensorData.valid ? 1 : 0);        // Data validity flag
 
     Serial.println("Group 2 URL: " + url);
 
