@@ -23,13 +23,13 @@
 
 // Deep sleep configuration
 #define uS_TO_S_FACTOR      1000000ULL  // Conversion factor for micro seconds to seconds
-#define TIME_TO_SLEEP       300         // Time ESP32 will go to sleep (5 minutes = 300 seconds)
+#define TIME_TO_SLEEP       900         // Time ESP32 will go to sleep (15 minutes = 900 seconds)
 
 // Timing constants (milliseconds)
 #define MODEM_STARTUP_DELAY     20000   // 20 seconds for modem startup
 #define AT_RESPONSE_TIMEOUT     15000   // 15 seconds for AT responses
 #define NETWORK_REG_TIMEOUT     90000   // 90 seconds for network registration
-#define HTTP_TIMEOUT           45000   // 45 seconds for HTTP operations
+#define HTTP_TIMEOUT           60000   // 90 seconds for HTTP operations
 
 // Retry constants
 #define MAX_AT_RETRIES         5
@@ -39,12 +39,12 @@
 #define MAX_WAKE_RETRIES       3
 
 // Sleep verification delays
-#define SLEEP_VERIFY_DELAY_1   5000    // 5 seconds
-#define SLEEP_VERIFY_DELAY_2   10000   // 10 seconds
-#define SLEEP_VERIFY_DELAY_3   15000   // 15 seconds
-#define WAKE_VERIFY_DELAY_1    2000    // 2 seconds
-#define WAKE_VERIFY_DELAY_2    5000    // 5 seconds
-#define WAKE_VERIFY_DELAY_3    10000   // 10 seconds
+#define SLEEP_VERIFY_DELAY_1   2000    // 2 seconds
+#define SLEEP_VERIFY_DELAY_2   5000    // 5 seconds
+#define SLEEP_VERIFY_DELAY_3   10000   // 10 seconds
+#define WAKE_VERIFY_DELAY_1    200     // 200ms
+#define WAKE_VERIFY_DELAY_2    500     // 500ms
+#define WAKE_VERIFY_DELAY_3    1000    // 1 second
 
 // Battery reading
 #define BATTERY_ADC_PIN        35      // Main battery voltage divider pin
@@ -442,7 +442,7 @@ bool performThingSpeakCycle() {
 
     // Send both groups (continue even if one fails)
     bool group1Success = sendThingSpeakGroup1();
-    delay(2000); // Delay between uploads
+    delay(200); // Delay between uploads
     bool group2Success = sendThingSpeakGroup2();
 
     // Disconnect HTTP
@@ -550,20 +550,20 @@ void modem_sleep()
 
     // Step 1: Disconnect any active connections gracefully
     sendATCommand("AT+SHDISC", 3000);
-    delay(1000);
+    delay(100);
 
     // Step 2: Deactivate PDP context
     sendATCommand("AT+CNACT=1,0", 5000);
-    delay(2000);
+    delay(200);
 
     // Step 3: Set DTR HIGH to prepare for sleep mode
     pinMode(PIN_DTR, OUTPUT);
     digitalWrite(PIN_DTR, HIGH);
-    delay(1000);
+    delay(500);
 
     // Step 4: Enable sleep mode (AT+CSCLK=1)
     sendATCommand("AT+CSCLK=1", 5000);
-    delay(2000);
+    delay(200);
 
     // Step 5: Hold DTR state during ESP32 deep sleep
     gpio_hold_en((gpio_num_t)PIN_DTR);
@@ -689,7 +689,7 @@ bool establishNetworkConnection() {
                 }
             }
         }
-        delay(2000);
+        delay(200);
 
         // 2. Force GPRS Mode (Critical for TCP/HTTP)
         Serial.println("Setting GPRS mode...");
@@ -698,7 +698,7 @@ bool establishNetworkConnection() {
             Serial.println("Failed to set GPRS mode");
             continue;
         }
-        delay(3000);
+        delay(300);
 
         // 3. Check Network Registration (with extended timeout)
         Serial.println("Checking network registration...");
@@ -713,7 +713,7 @@ bool establishNetworkConnection() {
                     break;
                 }
             }
-            delay(5000); // Wait 5 seconds between checks
+            delay(2500); // Wait 2.5 seconds between checks
         }
 
         if (!registered) {
@@ -729,7 +729,7 @@ bool establishNetworkConnection() {
             Serial.println("Failed to set APN");
             continue;
         }
-        delay(2000);
+        delay(200);
 
         // 5. Activate Data Connection
         Serial.println("Activating data connection...");
@@ -738,7 +738,7 @@ bool establishNetworkConnection() {
             Serial.println("Failed to activate data connection");
             continue;
         }
-        delay(5000);
+        delay(500);
 
         // 6. Verify IP Address Assignment
         Serial.println("Verifying IP address...");
@@ -763,7 +763,7 @@ bool establishNetworkConnection() {
         // Recovery sequence if this attempt failed
         Serial.println("Network setup failed, attempting recovery...");
         sendATCommand("AT+CNACT=1,0", 10000); // Deactivate context 1
-        delay(5000);
+        delay(500);
     }
 
     Serial.println("All network connection attempts failed");
@@ -797,7 +797,7 @@ void gps_power_on() {
 void esp32_deep_sleep() {
     Serial.printf("ESP32 entering deep sleep for %d minutes\n", TIME_TO_SLEEP / 60);
 
-    // Configure timer wake-up for 5 minutes
+    // Configure timer wake-up for 15 minutes
     esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
 
     Serial.println("Going to sleep now...");
@@ -842,7 +842,7 @@ void wake_from_deep_sleep() {
                 Serial.println("SIM7000 power cycle successful");
                 return;
             }
-            delay(5000);
+            delay(500);
         }
 
         Serial.println("SIM7000 power cycle failed - entering emergency sleep");
@@ -859,16 +859,16 @@ bool robust_modem_sleep() {
 
         // Step 1: Graceful disconnection
         sendATCommand("AT+SHDISC", 3000);
-        delay(1000);
+        delay(100);
         sendATCommand("AT+CNACT=1,0", 5000);
-        delay(2000);
+        delay(200);
 
         // Step 2: Set DTR HIGH and enable sleep
         pinMode(PIN_DTR, OUTPUT);
         digitalWrite(PIN_DTR, HIGH);
-        delay(1000);
+        delay(100);
         sendATCommand("AT+CSCLK=1", 5000);
-        delay(2000);
+        delay(200);
 
         // Step 3: Hold DTR state for ESP32 deep sleep
         gpio_hold_en((gpio_num_t)PIN_DTR);
@@ -895,9 +895,9 @@ bool robust_modem_sleep() {
         // Reset for next attempt
         gpio_hold_dis((gpio_num_t)PIN_DTR);
         digitalWrite(PIN_DTR, LOW);
-        delay(2000);
+        delay(200);
         sendATCommand("AT+CSCLK=0", 5000);
-        delay(2000);
+        delay(500);
     }
 
     Serial.println("All sleep attempts failed");
@@ -927,7 +927,7 @@ bool robust_modem_wake() {
 
         // Step 3: Disable sleep mode
         sendATCommand("AT+CSCLK=0", 5000);
-        delay(1000);
+        delay(100);
 
         // Step 4: Verify modem is awake
         if (verify_modem_awake()) {
@@ -948,7 +948,7 @@ bool verify_modem_sleeping() {
 
     // Try to send AT command - should get no response if sleeping
     SerialAT.println("AT");
-    delay(2000);
+    delay(200);
 
     String response = "";
     unsigned long startTime = millis();
@@ -980,7 +980,7 @@ bool verify_modem_awake() {
             Serial.println("Modem is awake and responding");
             return true;
         }
-        delay(1000);
+        delay(100);
     }
 
     Serial.println("Modem is not responding");
@@ -992,7 +992,7 @@ void modem_power_off() {
 
     // Try graceful shutdown first
     sendATCommand("AT+CPOWD=1", 10000);
-    delay(5000);
+    delay(500);
 
     // Force power off via PWR_PIN
     pinMode(PWR_PIN, OUTPUT);
